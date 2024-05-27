@@ -16,12 +16,12 @@
 
 package com.merxury.blocker.tool
 
-import com.merxury.blocker.tool.model.ExodusList
 import com.merxury.blocker.tool.model.ExodusModel
 import com.merxury.blocker.tool.model.GeneralRule
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
@@ -44,7 +44,7 @@ fun main() {
 
     // Convert to List of objects
     val blockerRules: List<GeneralRule> = Json.decodeFromString(
-        File("general-without-exodus.json").readText()
+        File("blocker-rules.json").readText()
     )
     val exodusElement = Json.parseToJsonElement(exodusRuleContent)
     val exodusList = mutableListOf<ExodusModel>()
@@ -69,13 +69,38 @@ fun main() {
     )
 
     // Convert to final JSON
-    val result = blockerRules.toMutableList()
-    exodusList.forEach {
-        if (it.name in excludedName) {
+    val result = mutableListOf<GeneralRule>()
+
+    blockerRules.forEach { rule ->
+        val existedRuleInExodus = exodusList.find { it.name == rule.name }
+        if (existedRuleInExodus != null) {
+            val generalRule = existedRuleInExodus.toGeneralRule(result.size)
+            result.add(generalRule)
             return@forEach
         }
+        if (rule.searchKeyword.isEmpty()) {
+            return@forEach
+        }
+        result.add(rule)
+    }
+    // Find any rule that is not in the blocker list
+    exodusList.find { exodusModel ->
+        // Check if the rule is already in the list and not in the excluded list
+        if (exodusModel.name in excludedName) {
+            return@find false
+        }
+        val existedRule = result.find { it.name.lowercase() == exodusModel.name.lowercase() }
+        existedRule == null
+    }?.let {
         val generalRule = it.toGeneralRule(result.size)
         result.add(generalRule)
+    }
+
+
+    result.filter { it.searchKeyword.isNotEmpty() }
+        .mapIndexed { index, generalRule ->
+            // Reorder ID for all rules
+        generalRule.copy(id = index)
     }
     val finalJson = json.encodeToString(result)
 

@@ -24,10 +24,15 @@ data class ExodusModel(
             id = id,
             name = name,
             company = getNameFromDomain(website),
-            description = description,
+            description = description.replace("\r\n", "\n")
+                .replace("\n\n", "\n"),
             searchKeyword = codeSignature.split("|")
                 .filter { it.isNotBlank() }
                 .map { it.trim() },
+            networkSignature = networkSignature.split("|")
+                .filter { it.isNotBlank() }
+                .map { it.trim() },
+            website = website,
             contributors = listOf("Exodus Tracker Investigation Platform"),
         )
     }
